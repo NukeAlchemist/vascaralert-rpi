@@ -15,6 +15,8 @@ distanceLimit = 5
 speedthresh = 0
 altthresh = 1800
 signalthresh = 75
+alert = 0
+oldalert = 0
 
 class GpsPoller(threading.Thread):
 	def __init__(self):
@@ -49,6 +51,7 @@ if __name__ == '__main__':
 	try:
 		gpsp.start()
 		while True:
+			oldalert = alert
 			alert = 0
 
 			#It may take a second or two to get good data
@@ -86,7 +89,12 @@ if __name__ == '__main__':
 				s = []
 				j = []
 
-			print "Alert =", alert
+			if alert == 1 and oldalert == 0:
+				print "ALERT: New potential VASCAR threat.\n"
+			elif alert == 1 and oldalert == 1:
+				print "Potential VASCAR threat (old).\n"
+			else:
+				print "\n"
 
 	except (KeyboardInterrupt, SystemExit): #when you press ctrl+c
 		print "\nKilling Thread..."
