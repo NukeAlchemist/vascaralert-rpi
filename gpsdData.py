@@ -13,8 +13,8 @@ gpsd = None #seting the global variable
 dump1090url = 'http://127.0.0.1:8080'
 distanceLimit = 5
 speedthresh = 0
-altthresh = 1800
-signalthresh = 75
+altthresh = 2500
+timethresh = 25
 alert = 0
 oldalert = 0
 
@@ -71,31 +71,30 @@ if __name__ == '__main__':
 				for plane in j:
 					if plane['lon']:
 						dist = haversine(lon, lat, plane['lon'], plane['lat'])
-						plane['dist'] = dist
+						plane['dist'] = int(dist)
 					else:
 						plane['dist'] = 0
-					plane['relalt'] = plane['altitude'] - alt	
+					plane['relalt'] = int(plane['altitude'] - alt)	
 
-				sortedByDistance = sorted(j, key=lambda k: k['dist'])
+				sortedByDistance = sorted(j, key=lambda k: k['seen'])
 
 				for i in range(0,100):
 					if len(sortedByDistance) > i:
 						p = sortedByDistance[i]
 						#analyze
-						if p['relalt'] > 0 and p['relalt'] < altthresh and p['seen'] > signalthresh: 
+						if p['relalt'] > 0 and p['relalt'] < altthresh and p['seen'] < timethresh: 
 							alert = 1
-						print "Plane", i+1, ", ", p['relalt'], "ft. relative altitude.", p['seen'], "strength", p['dist'], "miles away."
+							print "Plane at", p['relalt'], "ft. rel. altitude.", p['seen'], "(s) since beacon,", p['dist'], "miles away."
 						p = []
 				s = []
 				j = []
 
 			if alert == 1 and oldalert == 0:
-				print "ALERT: New potential VASCAR threat.\n"
+				print "\nALERT: New potential VASCAR threat.\n"
 			elif alert == 1 and oldalert == 1:
-				print "Potential VASCAR threat (old).\n"
-			else:
-				print "\n"
-
+				print "Potential VASCAR threat (old)."
+#			else:
+#				print "You're good!"
 	except (KeyboardInterrupt, SystemExit): #when you press ctrl+c
 		print "\nKilling Thread..."
 		gpsp.running = False
