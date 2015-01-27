@@ -10,15 +10,6 @@ from math import radians, degrees, cos, sin, asin, sqrt, atan2
 
 gpsd = None #seting the global variable
 dump1090url = 'http://127.0.0.1:8080'
-
-## Configuration Variables ##
-distanceLimit = 8	# Maximum distance (mi) to potential aerial VASCAR threats. Only works if lat/lon received.
-speedthresh = 0		# Vehicle speed (MPH) threshold for activating aerial VASCAR scanning.
-altthresh = 2500	# Maximum rel. altitude (ft) for potential aerial VASCAR threats. 
-timethresh = 30		# Maximum time (s) since receipt of last beacon for potential aerial VASCAR threats.
-msgthresh = 50		# Minimum received messages to consider aerial VASCAR threats. Reduces falses.
-
-
 alert = 0
 oldalert = 0
 
@@ -50,24 +41,30 @@ def haversine(lon1, lat1, lon2, lat2):
 	return mi
 
 if __name__ == '__main__':
-	gpsp = GpsPoller() # create the thread
+	# First, import filter settings
+	config = {}
+	execfile("settings.conf", config)
+
+	gpsp = GpsPoller() 
 	url = dump1090url + '/data.json'
+
 	try:
 		gpsp.start()
+		sleep(15)	# Give GPS a moment to acquire a fix
+
 		while True:
 			oldalert = alert
 			alert = 0
 
 			# It may take a second or two to get good data
-			# print gpsd.fix.latitude,', ',gpsd.fix.longitude,' Time: ',gpsd.utc
-			sleep(15)
+			sleep(3)
 
 			alt = gpsd.fix.altitude * 3.28084
 			speed = gpsd.fix.speed * 2.23694
 			lat = gpsd.fix.latitude
 			lon = gpsd.fix.longitude
 			
-			if speed >= speedthresh:
+			if speed >= config['speedthresh']:
 
 				s = urllib2.urlopen(url).read()
 				j = json.loads(s)
@@ -86,7 +83,7 @@ if __name__ == '__main__':
 					if len(sortedByDistance) > i:
 						p = sortedByDistance[i]
 						#analyze
-						if p['relalt'] > 0 and p['relalt'] < altthresh and p['seen'] < timethresh and p['messages'] > msgthresh: 
+						if p['relalt'] > 0 and p['relalt'] < config['altthresh'] and p['seen'] < config['timethresh'] and p['messages'] > config['msgthresh'] and p['dist'] < config['distanceLimit']: 
 							alert = 1
 							print "\nPlane at", p['relalt'], "ft. rel. altitude.", p['seen'], "(s) since beacon,", p['dist'], "miles away at", strftime("%H:%M:%S", localtime())
 						p = []
