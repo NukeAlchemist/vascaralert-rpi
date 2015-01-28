@@ -10,8 +10,10 @@ from math import radians, degrees, cos, sin, asin, sqrt, atan2
 
 gpsd = None #seting the global variable
 dump1090url = 'http://127.0.0.1:8080'
+configfile = "/home/pi/scripts/vascaralert-rpi/settings.conf"
 alert = 0
 oldalert = 0
+threats = {}
 
 class GpsPoller(threading.Thread):
 	def __init__(self):
@@ -43,7 +45,7 @@ def haversine(lon1, lat1, lon2, lat2):
 if __name__ == '__main__':
 	# First, import filter settings
 	config = {}
-	execfile("settings.conf", config)
+	execfile(configfile, config)
 
 	gpsp = GpsPoller() 
 	url = dump1090url + '/data.json'
@@ -51,6 +53,7 @@ if __name__ == '__main__':
 	try:
 		gpsp.start()
 		sleep(15)	# Give GPS a moment to acquire a fix
+				# It doesn't perform well if it doesn't get its fix
 
 		while True:
 			oldalert = alert
@@ -82,18 +85,28 @@ if __name__ == '__main__':
 				for i in range(0,len(j)):
 					if len(sortedByDistance) > i:
 						p = sortedByDistance[i]
-						#analyze
+						# Analyze!
 						if p['relalt'] > 0 and p['relalt'] < config['altthresh'] and p['seen'] < config['timethresh'] and p['messages'] > config['msgthresh'] and p['dist'] < config['distanceLimit']: 
-							alert = 1
-							print "\nPlane at", p['relalt'], "ft. rel. altitude.", p['seen'], "(s) since beacon,", p['dist'], "miles away at", strftime("%H:%M:%S", localtime())
+							threats[alert] = p
+							alert = alert + 1
+#							print "\nPlane at", p['relalt'], "ft. rel. altitude.", p['seen'], "(s) since beacon,", p['dist'], "miles away at", strftime("%H:%M:%S", localtime())
 						p = []
 				s = []
 				j = []
 
-			if alert == 1 and oldalert == 0:
-				print "ALERT: New potential VASCAR threat.\n"
-			elif alert == 1 and oldalert == 1:
-				print "Potential VASCAR threat (old)."
+			if alert >= 1 and oldalert == 0:
+				for i in threats:
+					p = threats[i]
+					if p['dist'] > 0:
+						print "\n", strftime("%H:%M:%S", localtime()), "\nALERT: New potential VASCAR threat at", p['relalt'], "ft.,", p['dist'], "miles away.\n"
+					else:
+						print "\n", strftime("%H:%M:%S", localtime()), "\nALERT: New potential VASCAR threat at", p['relalt'], "ft.\n"
+					p = []
+			elif alert >= 1 and oldalert >= 1:
+				for i in threats:
+					p = threats[i]
+					print "Continued VASCAR threat, last seen", p['seen'], "seconds ago at", p['relalt'], "ft."
+					p = []
 #			else:
 #				print "You're good!"
 
