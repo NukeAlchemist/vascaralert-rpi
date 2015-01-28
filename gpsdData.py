@@ -11,8 +11,9 @@ from math import radians, degrees, cos, sin, asin, sqrt, atan2
 gpsd = None #seting the global variable
 dump1090url = 'http://127.0.0.1:8080'
 configfile = "/home/pi/scripts/vascaralert-rpi/settings.conf"
-alert = 0
-oldalert = 0
+# alert = 0
+# oldalert = 0
+# alertcount = 0
 threats = {}
 
 class GpsPoller(threading.Thread):
@@ -47,6 +48,11 @@ if __name__ == '__main__':
 	config = {}
 	execfile(configfile, config)
 
+	timestep = 3
+	alert = 0
+	oldalert = 0
+	threatcount = 0
+	threatlist = {}
 	gpsp = GpsPoller() 
 	url = dump1090url + '/data.json'
 
@@ -60,7 +66,7 @@ if __name__ == '__main__':
 			alert = 0
 
 			# It may take a second or two to get good data
-			sleep(3)
+			sleep(timestep)
 
 			alt = gpsd.fix.altitude * 3.28084
 			speed = gpsd.fix.speed * 2.23694
@@ -71,6 +77,8 @@ if __name__ == '__main__':
 
 				s = urllib2.urlopen(url).read()
 				j = json.loads(s)
+				yesno = 0
+				bookmark = 0
 
 				for plane in j:
 					if plane['lon']:
@@ -87,26 +95,57 @@ if __name__ == '__main__':
 						p = sortedByDistance[i]
 						# Analyze!
 						if p['relalt'] > 0 and p['relalt'] < config['altthresh'] and p['seen'] < config['timethresh'] and p['messages'] > config['msgthresh'] and p['dist'] < config['distanceLimit']: 
-							threats[alert] = p
+							# Track!
+							if len(threats) == 0:
+								threats[0] = p
+								threatlist[threatcount] = p['hex']
+								threatcount = threatcount + 1
+							else:
+								for l in range(0, threatcount):
+									q = threats[l]
+									if p['hex'] == q['hex']:
+										yesno = 1
+										bookmark = l
+									q = []
+								if yesno == 1:
+									if "vert_rate_new" in threats[bookmark]:
+										vro = threats[bookmark]['vert_rate']
+										threats[bookmark]['vert_rate'] = threats[bookmark]['vert_rate_new']
+										vr = threats[bookmark]['vert_rate']
+										vrn = (vro + vr + abs(p['relalt'] - threats[bookmark]['relalt']) / timestep) / 3
+										threats[bookmark]['vert_rate_new'] = vrn
+										threats[bookmark]['messages'] = p['messages']
+										threats[bookmark]['lon'] = p['lon']
+										threats[bookmark]['relalt'] = p['relalt']
+										threats[bookmark]['lat'] = p['lat']
+										threats[bookmark]['seen'] = p['seen']
+										threats[bookmark]['dist'] = p['dist']
+								else:
+									vrn = abs(threats[bookmark]['relalt'] - p['relalt']) / timestep
+									p['vert_rate_new'] = vrn
+									threats[threatcount] = p
+									threatlist[threatcount] = p['hex']
+									threatcount = threatcount + 1
 							alert = alert + 1
-#							print "\nPlane at", p['relalt'], "ft. rel. altitude.", p['seen'], "(s) since beacon,", p['dist'], "miles away at", strftime("%H:%M:%S", localtime())
 						p = []
 				s = []
 				j = []
 
-			if alert >= 1 and oldalert == 0:
+			if alert >= 1:
 				for i in threats:
 					p = threats[i]
 					if p['dist'] > 0:
-						print "\n", strftime("%H:%M:%S", localtime()), "\nALERT: New potential VASCAR threat at", p['relalt'], "ft.,", p['dist'], "miles away.\n"
+						# print "\n", strftime("%H:%M:%S", localtime()), "\nALERT: New potential VASCAR threat at", p['relalt'], "ft.,", p['dist'], "miles away.\n"
+						print threatlist
 					else:
-						print "\n", strftime("%H:%M:%S", localtime()), "\nALERT: New potential VASCAR threat at", p['relalt'], "ft.\n"
+						# print "\n", strftime("%H:%M:%S", localtime()), "\nALERT: New potential VASCAR threat at", p['relalt'], "ft.\n"
+						print threatlist
 					p = []
-			elif alert >= 1 and oldalert >= 1:
-				for i in threats:
-					p = threats[i]
-					print "Continued VASCAR threat, last seen", p['seen'], "seconds ago at", p['relalt'], "ft."
-					p = []
+#			elif alert >= 1 and oldalert >= 1:
+#				for i in threats:
+#					p = threats[i]
+#					print "Continued VASCAR threat, last seen", p['seen'], "seconds ago at", p['relalt'], "ft."
+#					p = []
 #			else:
 #				print "You're good!"
 
