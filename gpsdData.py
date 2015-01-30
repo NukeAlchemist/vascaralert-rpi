@@ -12,6 +12,7 @@ from operator import itemgetter
 gpsd = None #seting the global variable
 dump1090url = 'http://127.0.0.1:8080'
 configfile = "/home/pi/scripts/vascaralert-rpi/settings.conf"
+alt = 0
 # alert = 0
 # oldalert = 0
 # alertcount = 0
@@ -56,14 +57,14 @@ def meanstdv(x):
 		std.append(pow((value - (sum(x)/len(x))), 2))
 	stddev = sqrt(sum(std)/len(std))
 	mean = (sum(x)/len(x))
-	return round(float(mean)), float(stddev)
+	return round(float(mean)), round(float(stddev), 2)
 
 if __name__ == '__main__':
 	# First, import filter settings
 	config = {}
 	execfile(configfile, config)
 
-	timestep = 3
+	timestep = config['pollint']
 	alert = 0
 	oldalert = 0
 	threatcount = 0
@@ -114,7 +115,7 @@ if __name__ == '__main__':
 							altlist = []
 							if threatcount == 0:
 								# No identified threats yet
-								altlist.append(p['relalt'])
+								altlist.append(p['altitude']) # Note ABSOLUTE altitude
 								r = {u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S",localtime()), 'altitudes': altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':100000}
 								threatlist[0] = r
 								threatcount = 1
@@ -122,14 +123,14 @@ if __name__ == '__main__':
 								m = findhex(threatlist, p['hex'])
 								# Check if threat has been identified before
 								if m < 0:
-									altlist.append(p['relalt'])
+									altlist.append(p['altitude']) # Note ABSOLUTE altitude
 									r = {u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S", localtime()), 'altitudes':altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':10000}
 									threatlist[threatcount] = r
 									threatcount = threatcount + 1
 								else:
 									r = threatlist[m]
 									altlist = r['altitudes']
-									altlist.append(p['relalt'])
+									altlist.append(p['altitude'])
 									r['lastseen'] = strftime("%H:%M:%S", localtime())
 									r['altitudes'] = altlist
 									r['dist'] = p['dist']
@@ -141,16 +142,15 @@ if __name__ == '__main__':
 				j = []
 
 			if alert >= 1:
-				print threatcount, "Threats recorded"
-				for i in threatlist:
-					p = threatlist[i]
-					print "Threat", i+1, p['hex'], "is at a mean altitude of", p['meanalt'], "ft. with a std. dev. of", p['stdalt'], "ft. and was last seen at", p['lastseen']
+				print threatcount, "threats recorded"
 #			else:
 #				print "You're good!"
 
 	except (KeyboardInterrupt, SystemExit): #when you press ctrl+c
 		print "\nKilling Thread..."
-		print "\nthreatlist:\n:", threatlist
+		for i in threatlist:
+			p = threatlist[i]
+			print "Threat", i+1, p['hex'], "had a mean altitude of", p['meanalt'], "ft. with a std. dev. of", p['stdalt'], "ft. and was last seen at", p['altitudes'][len(p['altitudes'])-1], "ft. at", p['lastseen']
 		gpsp.running = False
 		gpsp.join() # wait for the thread to finish what it's doing
 	
