@@ -13,9 +13,6 @@ gpsd = None #seting the global variable
 dump1090url = 'http://127.0.0.1:8080'
 configfile = "/home/pi/scripts/vascaralert-rpi/settings.conf"
 alt = 0
-# alert = 0
-# oldalert = 0
-# alertcount = 0
 
 class GpsPoller(threading.Thread):
 	def __init__(self):
@@ -93,8 +90,6 @@ if __name__ == '__main__':
 
 				s = urllib2.urlopen(url).read()
 				j = json.loads(s)
-				yesno = 0
-				bookmark = 0
 
 				for plane in j:
 					if plane['lon']:
