@@ -7,7 +7,6 @@ import threading
 import urllib2
 import json
 from math import radians, degrees, cos, sin, asin, sqrt, atan2
-from operator import itemgetter
 
 gpsd = None #seting the global variable
 dump1090url = 'http://127.0.0.1:8080'
