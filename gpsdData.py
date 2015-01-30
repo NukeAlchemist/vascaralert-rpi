@@ -7,6 +7,7 @@ import threading
 import urllib2
 import json
 from math import radians, degrees, cos, sin, asin, sqrt, atan2
+from operator import itemgetter
 
 gpsd = None #seting the global variable
 dump1090url = 'http://127.0.0.1:8080'
@@ -14,7 +15,6 @@ configfile = "/home/pi/scripts/vascaralert-rpi/settings.conf"
 # alert = 0
 # oldalert = 0
 # alertcount = 0
-threats = {}
 
 class GpsPoller(threading.Thread):
 	def __init__(self):
@@ -42,6 +42,21 @@ def haversine(lon1, lat1, lon2, lat2):
 	c = 2 * asin(sqrt(a))
 	mi = 3956.27 * c
 	return mi
+
+def findhex(dict, key):
+	for i in dict:
+		p = dict[i]
+		if p['hex'] == key:
+			return i
+	return -1
+
+def meanstdv(x):
+	std = []
+	for value in x:
+		std.append(pow((value - (sum(x)/len(x))), 2))
+	stddev = sqrt(sum(std)/len(std))
+	mean = (sum(x)/len(x))
+	return round(float(mean)), float(stddev)
 
 if __name__ == '__main__':
 	# First, import filter settings
@@ -96,61 +111,46 @@ if __name__ == '__main__':
 						# Analyze!
 						if p['relalt'] > 0 and p['relalt'] < config['altthresh'] and p['seen'] < config['timethresh'] and p['messages'] > config['msgthresh'] and p['dist'] < config['distanceLimit']: 
 							# Track!
-							if len(threats) == 0:
-								threats[0] = p
-								threatlist[threatcount] = p['hex']
-								threatcount = threatcount + 1
+							altlist = []
+							if threatcount == 0:
+								# No identified threats yet
+								altlist.append(p['relalt'])
+								r = {u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S",localtime()), 'altitudes': altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':100000}
+								threatlist[0] = r
+								threatcount = 1
 							else:
-								for l in range(0, threatcount):
-									q = threats[l]
-									if p['hex'] == q['hex']:
-										yesno = 1
-										bookmark = l
-									q = []
-								if yesno == 1:
-									if "vert_rate_new" in threats[bookmark]:
-										vro = threats[bookmark]['vert_rate']
-										threats[bookmark]['vert_rate'] = threats[bookmark]['vert_rate_new']
-										vr = threats[bookmark]['vert_rate']
-										vrn = (vro + vr + abs(p['relalt'] - threats[bookmark]['relalt']) / timestep) / 3
-										threats[bookmark]['vert_rate_new'] = vrn
-										threats[bookmark]['messages'] = p['messages']
-										threats[bookmark]['lon'] = p['lon']
-										threats[bookmark]['relalt'] = p['relalt']
-										threats[bookmark]['lat'] = p['lat']
-										threats[bookmark]['seen'] = p['seen']
-										threats[bookmark]['dist'] = p['dist']
-								else:
-									vrn = abs(threats[bookmark]['relalt'] - p['relalt']) / timestep
-									p['vert_rate_new'] = vrn
-									threats[threatcount] = p
-									threatlist[threatcount] = p['hex']
+								m = findhex(threatlist, p['hex'])
+								# Check if threat has been identified before
+								if m < 0:
+									altlist.append(p['relalt'])
+									r = {u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S", localtime()), 'altitudes':altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':10000}
+									threatlist[threatcount] = r
 									threatcount = threatcount + 1
+								else:
+									r = threatlist[m]
+									altlist = r['altitudes']
+									altlist.append(p['relalt'])
+									r['lastseen'] = strftime("%H:%M:%S", localtime())
+									r['altitudes'] = altlist
+									r['dist'] = p['dist']
+									r['meanalt'], r['stdalt'] = meanstdv(altlist)
+									threatlist[m] = r
 							alert = alert + 1
 						p = []
 				s = []
 				j = []
 
 			if alert >= 1:
-				for i in threats:
-					p = threats[i]
-					if p['dist'] > 0:
-						# print "\n", strftime("%H:%M:%S", localtime()), "\nALERT: New potential VASCAR threat at", p['relalt'], "ft.,", p['dist'], "miles away.\n"
-						print threatlist
-					else:
-						# print "\n", strftime("%H:%M:%S", localtime()), "\nALERT: New potential VASCAR threat at", p['relalt'], "ft.\n"
-						print threatlist
-					p = []
-#			elif alert >= 1 and oldalert >= 1:
-#				for i in threats:
-#					p = threats[i]
-#					print "Continued VASCAR threat, last seen", p['seen'], "seconds ago at", p['relalt'], "ft."
-#					p = []
+				print threatcount, "Threats recorded"
+				for i in threatlist:
+					p = threatlist[i]
+					print "Threat", i+1, p['hex'], "is at a mean altitude of", p['meanalt'], "ft. with a std. dev. of", p['stdalt'], "ft. and was last seen at", p['lastseen']
 #			else:
 #				print "You're good!"
 
 	except (KeyboardInterrupt, SystemExit): #when you press ctrl+c
 		print "\nKilling Thread..."
+		print "\nthreatlist:\n:", threatlist
 		gpsp.running = False
 		gpsp.join() # wait for the thread to finish what it's doing
 	
