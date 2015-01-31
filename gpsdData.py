@@ -42,8 +42,8 @@ def haversine(lon1, lat1, lon2, lat2):
 
 def findhex(dict, key):
 	for i in dict:
-		p = dict[i]
-		if p['hex'] == key:
+		p = dict[i]['hex']
+		if p == key:
 			return i
 	return -1
 
