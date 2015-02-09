@@ -1,4 +1,4 @@
-#!/usr/bin/python
+﻿#!/usr/bin/python
 
 import os
 from gps import *
@@ -54,6 +54,16 @@ def meanstdv(x):
 	stddev = sqrt(sum(std)/len(std))
 	mean = (sum(x)/len(x))
 	return round(float(mean)), round(float(stddev), 2)
+	
+def credible_threat(p, config, alt):
+	if len(p['altitudes']) < 5:
+		return 0
+	elif p['stdalt'] > 40:
+		return 0
+	elif (p['meanalt'] - alt) > config['alertalt']:
+		return 0
+	else:
+		return 1
 
 if __name__ == '__main__':
 	# First, import filter settings
@@ -62,7 +72,6 @@ if __name__ == '__main__':
 
 	timestep = config['pollint']
 	alert = 0
-	oldalert = 0
 	threatcount = 0
 	threatlist = {}
 	gpsp = GpsPoller() 
@@ -98,11 +107,9 @@ if __name__ == '__main__':
 						plane['dist'] = 0
 					plane['relalt'] = round(plane['altitude'] - alt)	
 
-				sortedByDistance = sorted(j, key=lambda k: k['seen'])
-
 				for i in range(0,len(j)):
-					if len(sortedByDistance) > i:
-						p = sortedByDistance[i]
+					if len(j) > i:
+						p = j[i]
 						# Analyze!
 						if p['relalt'] > 0 and p['relalt'] < config['altthresh'] and p['seen'] < config['timethresh'] and p['messages'] > config['msgthresh'] and p['dist'] < config['distanceLimit']: 
 							# Track!
@@ -110,7 +117,7 @@ if __name__ == '__main__':
 							if threatcount == 0:
 								# No identified threats yet
 								altlist.append(p['altitude']) # Note ABSOLUTE altitude
-								r = {u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S",localtime()), 'altitudes': altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':100000}
+								r = {u'is_credible':0, u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S",localtime()), 'altitudes': altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':100000}
 								threatlist[0] = r
 								threatcount = 1
 							else:
@@ -118,7 +125,7 @@ if __name__ == '__main__':
 								# Check if threat has been identified before
 								if m < 0:
 									altlist.append(p['altitude']) # Note ABSOLUTE altitude
-									r = {u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S", localtime()), 'altitudes':altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':10000}
+									r = {u'is_credible':0, u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S", localtime()), 'altitudes':altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':10000}
 									threatlist[threatcount] = r
 									threatcount = threatcount + 1
 								else:
@@ -129,14 +136,16 @@ if __name__ == '__main__':
 									r['altitudes'] = altlist
 									r['dist'] = p['dist']
 									r['meanalt'], r['stdalt'] = meanstdv(altlist)
+									r['is_credible'] = credible_threat(r, config, alt)
+									if r['is_credible'] == 1 and speed >= config['alertspeed']:
+										alert = 1
 									threatlist[m] = r
-							alert = alert + 1
 						p = []
 				s = []
 				j = []
 
-			if alert >= 1:
-				print threatcount, "threats recorded"
+			if alert >= 1 and oldalert == 0:
+				print "ALERT!!", strftime("%H:%M:%S",localtime())
 #			else:
 #				print "You're good!"
 
