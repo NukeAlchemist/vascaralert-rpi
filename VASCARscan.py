@@ -56,9 +56,7 @@ def meanstdv(x):
 	return round(float(mean)), round(float(stddev), 2)
 	
 def credible_threat(p, config, alt):
-	if len(p['altitudes']) < 5:
-		return 0
-	elif p['stdalt'] > 40:
+	if p['stdalt'] > config['altstddev']:
 		return 0
 	elif (p['meanalt'] - alt) > config['alertalt']:
 		return 0
@@ -80,10 +78,9 @@ if __name__ == '__main__':
 	try:
 		gpsp.start()
 		sleep(15)	# Give GPS a moment to acquire a fix
-				# It doesn't perform well if it doesn't get its fix
+					# It doesn't perform well if it doesn't get its fix
 
 		while True:
-			oldalert = alert
 			alert = 0
 
 			# It may take a second or two to get good data
@@ -117,7 +114,7 @@ if __name__ == '__main__':
 							if threatcount == 0:
 								# No identified threats yet
 								altlist.append(p['altitude']) # Note ABSOLUTE altitude
-								r = {u'is_credible':0, u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S",localtime()), 'altitudes': altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':100000}
+								r = {u'alerted':0, u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S",localtime()), 'altitudes': altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':100000}
 								threatlist[0] = r
 								threatcount = 1
 							else:
@@ -125,7 +122,7 @@ if __name__ == '__main__':
 								# Check if threat has been identified before
 								if m < 0:
 									altlist.append(p['altitude']) # Note ABSOLUTE altitude
-									r = {u'is_credible':0, u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S", localtime()), 'altitudes':altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':10000}
+									r = {u'alerted':0, u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S", localtime()), 'altitudes':altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':100000}
 									threatlist[threatcount] = r
 									threatcount = threatcount + 1
 								else:
@@ -135,16 +132,19 @@ if __name__ == '__main__':
 									r['lastseen'] = strftime("%H:%M:%S", localtime())
 									r['altitudes'] = altlist
 									r['dist'] = p['dist']
-									r['meanalt'], r['stdalt'] = meanstdv(altlist)
-									r['is_credible'] = credible_threat(r, config, alt)
-									if r['is_credible'] == 1 and speed >= config['alertspeed']:
+									if len(r['altitudes']) >= config['altlenthresh']:
+										# Don't bother with math operations until we have enough data
+										r['meanalt'], r['stdalt'] = meanstdv(altlist)
+									tempalert = credible_threat(r, config, alt)
+									if tempalert == 1 and r['alerted'] == 0 and speed >= config['alertspeed']:
 										alert = 1
+										r['alerted'] = 1
 									threatlist[m] = r
 						p = []
 				s = []
 				j = []
 
-			if alert >= 1 and oldalert == 0:
+			if alert == 1:
 				print "ALERT!!", strftime("%H:%M:%S",localtime())
 #			else:
 #				print "You're good!"
