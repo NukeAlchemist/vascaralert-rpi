@@ -134,7 +134,7 @@ if __name__ == '__main__':
 									r['dist'] = p['dist']
 									if len(r['altitudes']) >= (config['altlenthresh'] / config['pollint']):
 										# Don't bother with math operations until we have enough data
-										r['meanalt'], r['stdalt'] = meanstdv(altlist)
+										r['meanalt'], r['stdalt'] = meanstdv(altlist) # Note ABSOLUTE altitude
 									tempalert = credible_threat(r, config, alt)
 									if tempalert == 1 and r['alerted'] == 0 and speed >= config['alertspeed']:
 										alert = 1
@@ -153,7 +153,7 @@ if __name__ == '__main__':
 		print "\nKilling Thread..."
 		for i in threatlist:
 			p = threatlist[i]
-			print "Threat", i+1, p['hex'], "had a mean altitude of", p['meanalt'], "ft. with a std. dev. of", p['stdalt'], "ft. and was last seen at", p['altitudes'][len(p['altitudes'])-1], "ft. at", p['lastseen']
+			print "Threat", i+1, p['hex'], "had a mean altitude of", p['meanalt']-alt, "ft. with a std. dev. of", p['stdalt'], "ft. and was last seen at", p['altitudes'][len(p['altitudes'])-1], "ft. at", p['lastseen']
 		gpsp.running = False
 		gpsp.join() # wait for the thread to finish what it's doing
 	
