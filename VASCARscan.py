@@ -132,7 +132,7 @@ if __name__ == '__main__':
 									r['lastseen'] = strftime("%H:%M:%S", localtime())
 									r['altitudes'] = altlist
 									r['dist'] = p['dist']
-									if len(r['altitudes']) >= config['altlenthresh']:
+									if len(r['altitudes']) >= (config['altlenthresh'] / config['pollint']):
 										# Don't bother with math operations until we have enough data
 										r['meanalt'], r['stdalt'] = meanstdv(altlist)
 									tempalert = credible_threat(r, config, alt)
