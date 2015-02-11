@@ -86,7 +86,7 @@ if __name__ == '__main__':
 			# It may take a second or two to get good data
 			sleep(timestep)
 
-			alt = gpsd.fix.altitude * 3.28084
+			alt = round(gpsd.fix.altitude * 3.28084)
 			speed = gpsd.fix.speed * 2.23694
 			lat = gpsd.fix.latitude
 			lon = gpsd.fix.longitude
@@ -112,34 +112,30 @@ if __name__ == '__main__':
 							# Track!
 							altlist = []
 							if threatcount == 0:
-								# No identified threats yet
-								altlist.append(p['altitude']) # Note ABSOLUTE altitude
-								r = {u'alerted':0, u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S",localtime()), 'altitudes': altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':100000}
-								threatlist[0] = r
-								threatcount = 1
+								m = -1
 							else:
 								m = findhex(threatlist, p['hex'])
-								# Check if threat has been identified before
-								if m < 0:
-									altlist.append(p['altitude']) # Note ABSOLUTE altitude
-									r = {u'alerted':0, u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S", localtime()), 'altitudes':altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':100000}
-									threatlist[threatcount] = r
-									threatcount = threatcount + 1
-								else:
-									r = threatlist[m]
-									altlist = r['altitudes']
-									altlist.append(p['altitude'])
-									r['lastseen'] = strftime("%H:%M:%S", localtime())
-									r['altitudes'] = altlist
-									r['dist'] = p['dist']
-									if len(r['altitudes']) >= (config['altlenthresh'] / config['pollint']):
-										# Don't bother with math operations until we have enough data
-										r['meanalt'], r['stdalt'] = meanstdv(altlist) # Note ABSOLUTE altitude
-									tempalert = credible_threat(r, config, alt)
-									if tempalert == 1 and r['alerted'] == 0 and speed >= config['alertspeed']:
-										alert = 1
-										r['alerted'] = 1
-									threatlist[m] = r
+							# Check if threat has been identified before
+							if m < 0:
+								altlist.append(p['altitude']) # Note ABSOLUTE altitude
+								r = {u'alerted':0, u'hex':p['hex'], u'firstseen':strftime("%H:%M:%S",localtime()), u'lastseen':strftime("%H:%M:%S", localtime()), 'altitudes':altlist, 'dist':p['dist'], 'meanalt':p['relalt'], 'stdalt':100000}
+								threatlist[threatcount] = r
+								threatcount = threatcount + 1
+							else:
+								r = threatlist[m]
+								altlist = r['altitudes']
+								altlist.append(p['altitude'])
+								r['lastseen'] = strftime("%H:%M:%S", localtime())
+								r['altitudes'] = altlist
+								r['dist'] = p['dist']
+								if len(r['altitudes']) >= (config['altlenthresh'] / config['pollint']):
+									# Don't bother with math operations until we have enough data
+									r['meanalt'], r['stdalt'] = meanstdv(altlist) # Note ABSOLUTE altitude
+								tempalert = credible_threat(r, config, alt)
+								if tempalert == 1 and r['alerted'] == 0 and speed >= config['alertspeed']:
+									alert = 1
+									r['alerted'] = 1
+								threatlist[m] = r
 						p = []
 				s = []
 				j = []
@@ -150,10 +146,12 @@ if __name__ == '__main__':
 #				print "You're good!"
 
 	except (KeyboardInterrupt, SystemExit): #when you press ctrl+c
-		print "\nKilling Thread..."
+		print "\nKilling Thread...\n"
+		print threatcount, "threats recorded."
 		for i in threatlist:
 			p = threatlist[i]
-			print "Threat", i+1, p['hex'], "had a mean altitude of", p['meanalt']-alt, "ft. with a std. dev. of", p['stdalt'], "ft. and was last seen at", p['altitudes'][len(p['altitudes'])-1], "ft. at", p['lastseen']
+			if p['alerted'] == 1:
+				print "\nAlert", p['lastseen'], "had a mean altitude of", p['meanalt']-alt, "ft. with a std. dev. of", p['stdalt'], "ft. and was last seen at", p['altitudes'][len(p['altitudes'])-1]-alt, "ft."
 		gpsp.running = False
 		gpsp.join() # wait for the thread to finish what it's doing
 	
