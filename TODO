@@ -1,3 +1,4 @@
 1) Add alert output
 	a) GPIO out alerts
 	b) Audio alerts
+2) Output ICAO hex codes of alerted planes to text/csv file.
