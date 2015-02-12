@@ -141,7 +141,8 @@ if __name__ == '__main__':
 				s = []
 				j = []
 
-			if alert == 1:
+#			if alert == 1:
+#				print "ALERT!"
 #			else:
 #				print "You're good!"
 
