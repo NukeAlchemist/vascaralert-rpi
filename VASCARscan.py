@@ -135,13 +135,13 @@ if __name__ == '__main__':
 								if tempalert == 1 and r['alerted'] == 0 and speed >= config['alertspeed']:
 									alert = 1
 									r['alerted'] = 1
+									print strftime("%H:%M:%S",localtime()), "ALERT!! - ICAO:", r['hex']
 								threatlist[m] = r
 						p = []
 				s = []
 				j = []
 
 			if alert == 1:
-				print "ALERT!!", strftime("%H:%M:%S",localtime())
 #			else:
 #				print "You're good!"
 
@@ -151,7 +151,7 @@ if __name__ == '__main__':
 		for i in threatlist:
 			p = threatlist[i]
 			if p['alerted'] == 1:
-				print "\nAlert", p['lastseen'], "had a mean altitude of", p['meanalt']-alt, "ft. with a std. dev. of", p['stdalt'], "ft. and was last seen at", p['altitudes'][len(p['altitudes'])-1]-alt, "ft."
+				print "\nAlert", p['hex'], "had a mean altitude of", p['meanalt']-alt, "ft. with a std. dev. of", p['stdalt'], "ft. and was last seen at", p['altitudes'][len(p['altitudes'])-1]-alt, "ft."
 		gpsp.running = False
 		gpsp.join() # wait for the thread to finish what it's doing
 	
