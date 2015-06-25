@@ -10,7 +10,7 @@ from math import radians, degrees, cos, sin, asin, sqrt, atan2
 
 gpsd = None #seting the global variable
 dump1090url = 'http://127.0.0.1:8080'
-configfile = "/home/pi/scripts/vascaralert-rpi/settings.conf"
+configfile = "/home/evan/vascaralert-rpi/settings.conf"
 alt = 0
 
 class GpsPoller(threading.Thread):
@@ -147,7 +147,6 @@ if __name__ == '__main__':
 #				print "You're good!"
 
 	except (KeyboardInterrupt, SystemExit): #when you press ctrl+c
-		print "\nKilling Thread...\n"
 		print threatcount, "threats recorded."
 		for i in threatlist:
 			p = threatlist[i]
